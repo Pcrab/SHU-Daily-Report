@@ -1,0 +1,203 @@
+package main
+
+import (
+	"encoding/base64"
+	"fmt"
+	"github.com/PuerkitoBio/goquery"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"strings"
+	"time"
+)
+
+func getFState(student Student) (string, []string) {
+	client := http.Client{}
+	now := time.Now()
+	reportURL := "https://selfreport.shu.edu.cn/DayReport.aspx" + "?day=" + now.AddDate(0, 0, -1).Format("2006-01-02")
+	req, err := http.NewRequest("GET", reportURL, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	parseReq(req)
+	req.Header.Set("Cookie", student.Cookie)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+
+	bodyString := string(UGZipBytes(body))
+	bodySlice := strings.Split(bodyString, "\n")
+	addr := make([]string, 0)
+	var name string
+
+	var stringPart string
+	for _, s := range bodySlice {
+		if strings.HasPrefix(s, "F.load") {
+			stringPart = s
+		}
+	}
+
+	// sheng
+	begin := strings.Index(stringPart, "f23_state")
+	begin = strings.Index(stringPart[begin:], "SelectedValueArray\":[\"") + begin + len("SelectedValueArray\":[\"")
+	finish := strings.Index(stringPart[begin:], "\"") + begin
+	addr = append(addr, stringPart[begin:finish])
+
+	// shi
+	begin = strings.Index(stringPart, "f24_state")
+	begin = strings.Index(stringPart[begin:], "SelectedValueArray\":[\"") + begin + len("SelectedValueArray\":[\"")
+	finish = strings.Index(stringPart[begin:], "\"") + begin
+	addr = append(addr, stringPart[begin:finish])
+
+	// qu
+	begin = strings.Index(stringPart, "f25_state")
+	begin = strings.Index(stringPart[begin:], "SelectedValueArray\":[\"") + begin + len("SelectedValueArray\":[\"")
+	finish = strings.Index(stringPart[begin:], "\"") + begin
+	addr = append(addr, stringPart[begin:finish])
+
+	// home
+	begin = strings.Index(stringPart, "f26_state={\"Text\":\"") + len("f26_state={\"Text\":\"")
+	finish = strings.Index(stringPart[begin:], "\"") + begin
+	addr = append(addr, stringPart[begin:finish])
+
+	begin = strings.Index(stringPart, "f1_state={\"Title\":\"") + len("f1_state={\"Title\":\"")
+	finish = strings.Index(stringPart[begin:], "（") + begin
+	name = stringPart[begin:finish]
+	fmt.Println(name)
+
+	code := "eyJwMV9CYW9TUlEiOnsiVGV4dCI6IjIwMjEtMDItMDcifSwicDFfRGFuZ1FTVFpLIjp7IkZfSXRlbXMiOltbIuiJr+WlvSIsIuiJr+Wlve+8iOS9k+a4qeS4jemrmOS6jjM3LjPvvIkiLDFdLFsi5LiN6YCCIiwi5LiN6YCCIiwxXV0sIlNlbGVjdGVkVmFsdWUiOiLoia/lpb0ifSwicDFfWmhlbmdaaHVhbmciOnsiSGlkZGVuIjp0cnVlLCJGX0l0ZW1zIjpbWyLmhJ/lhpIiLCLmhJ/lhpIiLDFdLFsi5ZKz5Ze9Iiwi5ZKz5Ze9IiwxXSxbIuWPkeeDrSIsIuWPkeeDrSIsMV1dLCJTZWxlY3RlZFZhbHVlQXJyYXkiOltdfSwicDFfUWl1WlpUIjp7IkZfSXRlbXMiOltdLCJTZWxlY3RlZFZhbHVlQXJyYXkiOltdfSwicDFfSml1WUtOIjp7IkZfSXRlbXMiOltdLCJTZWxlY3RlZFZhbHVlQXJyYXkiOltdfSwicDFfSml1WVlYIjp7IlJlcXVpcmVkIjpmYWxzZSwiRl9JdGVtcyI6W10sIlNlbGVjdGVkVmFsdWVBcnJheSI6W119LCJwMV9KaXVZWkQiOnsiRl9JdGVtcyI6W10sIlNlbGVjdGVkVmFsdWVBcnJheSI6W119LCJwMV9KaXVZWkwiOnsiRl9JdGVtcyI6W10sIlNlbGVjdGVkVmFsdWVBcnJheSI6W119LCJwMV9HdW9OZWkiOnsiRl9JdGVtcyI6W1si5Zu95YaFIiwi5Zu95YaFIiwxXSxbIuWbveWkliIsIuWbveWkliIsMV1dLCJTZWxlY3RlZFZhbHVlIjoi5Zu95YaFIn0sInAxX2RkbEd1b0ppYSI6eyJEYXRhVGV4dEZpZWxkIjoiWmhvbmdXZW4iLCJEYXRhVmFsdWVGaWVsZCI6Ilpob25nV2VuIiwiRl9JdGVtcyI6W1siLTEiLCLpgInmi6nlm73lrrYiLDEsIiIsIiJdLFsi6Zi/5bCU5be05bC85LqaIiwi6Zi/5bCU5be05bC85LqaIiwxLCIiLCIiXSxbIumYv+WwlOWPiuWIqeS6miIsIumYv+WwlOWPiuWIqeS6miIsMSwiIiwiIl0sWyLpmL/lr4zmsZciLCLpmL/lr4zmsZciLDEsIiIsIiJdLFsi6Zi/5qC55bu3Iiwi6Zi/5qC55bu3IiwxLCIiLCIiXSxbIumYv+aLieS8r+iBlOWQiOmFi+mVv+WbvSIsIumYv+aLieS8r+iBlOWQiOmFi+mVv+WbvSIsMSwiIiwiIl0sWyLpmL/psoHlt7QiLCLpmL/psoHlt7QiLDEsIiIsIiJdLFsi6Zi/5pu8Iiwi6Zi/5pu8IiwxLCIiLCIiXSxbIumYv+WhnuaLnOeWhiIsIumYv+WhnuaLnOeWhiIsMSwiIiwiIl0sWyLln4Plj4oiLCLln4Plj4oiLDEsIiIsIiJdLFsi5Z+D5aGe5L+E5q+U5LqaIiwi5Z+D5aGe5L+E5q+U5LqaIiwxLCIiLCIiXSxbIueIseWwlOWFsCIsIueIseWwlOWFsCIsMSwiIiwiIl0sWyLniLHmspnlsLzkupoiLCLniLHmspnlsLzkupoiLDEsIiIsIiJdLFsi5a6J6YGT5bCUIiwi5a6J6YGT5bCUIiwxLCIiLCIiXSxbIuWuieWTpeaLiSIsIuWuieWTpeaLiSIsMSwiIiwiIl0sWyLlronlnK3mi4kiLCLlronlnK3mi4kiLDEsIiIsIiJdLFsi5a6J5o+Q55Oc5ZKM5be05biD6L6+Iiwi5a6J5o+Q55Oc5ZKM5be05biD6L6+IiwxLCIiLCIiXSxbIuWlpeWcsOWIqSIsIuWlpeWcsOWIqSIsMSwiIiwiIl0sWyLlpaXlhbDnvqTlspsiLCLlpaXlhbDnvqTlspsiLDEsIiIsIiJdLFsi5r6z5aSn5Yip5LqaIiwi5r6z5aSn5Yip5LqaIiwxLCIiLCIiXSxbIuW3tOW3tOWkmuaWryIsIuW3tOW3tOWkmuaWryIsMSwiIiwiIl0sWyLlt7TluIPkuprmlrDlh6DlhoXkupoiLCLlt7TluIPkuprmlrDlh6DlhoXkupoiLDEsIiIsIiJdLFsi5be05ZOI6amsIiwi5be05ZOI6amsIiwxLCIiLCIiXSxbIuW3tOWfuuaWr+WdpiIsIuW3tOWfuuaWr+WdpiIsMSwiIiwiIl0sWyLlt7Tli5Lmlq/lnaYiLCLlt7Tli5Lmlq/lnaYiLDEsIiIsIiJdLFsi5be05p6XIiwi5be05p6XIiwxLCIiLCIiXSxbIuW3tOaLv+mprCIsIuW3tOaLv+mprCIsMSwiIiwiIl0sWyLlt7Topb8iLCLlt7Topb8iLDEsIiIsIiJdLFsi55m95L+E572X5pavIiwi55m95L+E572X5pavIiwxLCIiLCIiXSxbIueZvuaFleWkpyIsIueZvuaFleWkpyIsMSwiIiwiIl0sWyLkv53liqDliKnkupoiLCLkv53liqDliKnkupoiLDEsIiIsIiJdLFsi6LSd5a6BIiwi6LSd5a6BIiwxLCIiLCIiXSxbIuavlOWIqeaXtiIsIuavlOWIqeaXtiIsMSwiIiwiIl0sWyLlhrDlspsiLCLlhrDlspsiLDEsIiIsIiJdLFsi5rOi5aSa6buO5ZCEIiwi5rOi5aSa6buO5ZCEIiwxLCIiLCIiXSxbIuazouWFsCIsIuazouWFsCIsMSwiIiwiIl0sWyLms6Lmlq/lsLzkuprlkozpu5HloZ7lk6Xnu7TpgqMiLCLms6Lmlq/lsLzkuprlkozpu5HloZ7lk6Xnu7TpgqMiLDEsIiIsIiJdLFsi54675Yip57u05LqaIiwi54675Yip57u05LqaIiwxLCIiLCIiXSxbIuS8r+WIqeWFuSIsIuS8r+WIqeWFuSIsMSwiIiwiIl0sWyLljZrojKjnk6bnurMiLCLljZrojKjnk6bnurMiLDEsIiIsIiJdLFsi5LiN5Li5Iiwi5LiN5Li5IiwxLCIiLCIiXSxbIuW4g+Wfuue6s+azlee0oiIsIuW4g+Wfuue6s+azlee0oiIsMSwiIiwiIl0sWyLluIPpmobov6oiLCLluIPpmobov6oiLDEsIiIsIiJdLFsi5biD57u05bKbIiwi5biD57u05bKbIiwxLCIiLCIiXSxbIuacnemynCIsIuacnemynCIsMSwiIiwiIl0sWyLotaTpgZPlh6DlhoXkupoiLCLotaTpgZPlh6DlhoXkupoiLDEsIiIsIiJdLFsi5Li56bqmIiwi5Li56bqmIiwxLCIiLCIiXSxbIuW+t+WbvSIsIuW+t+WbvSIsMSwiIiwiIl0sWyLkuJzluJ3msbYiLCLkuJzluJ3msbYiLDEsIiIsIiJdLFsi5Lic5bid5rG2Iiwi5Lic5bid5rG2IiwxLCIiLCIiXSxbIuWkmuWTpSIsIuWkmuWTpSIsMSwiIiwiIl0sWyLlpJrnsbPlsLzliqAiLCLlpJrnsbPlsLzliqAiLDEsIiIsIiJdLFsi5L+E572X5pav6IGU6YKmIiwi5L+E572X5pav6IGU6YKmIiwxLCIiLCIiXSxbIuWOhOeTnOWkmuWwlCIsIuWOhOeTnOWkmuWwlCIsMSwiIiwiIl0sWyLljoTnq4vnibnph4zkupoiLCLljoTnq4vnibnph4zkupoiLDEsIiIsIiJdLFsi5rOV5Zu9Iiwi5rOV5Zu9IiwxLCIiLCIiXSxbIuazleWbveWkp+mDveS8miIsIuazleWbveWkp+mDveS8miIsMSwiIiwiIl0sWyLms5XnvZfnvqTlspsiLCLms5XnvZfnvqTlspsiLDEsIiIsIiJdLFsi5rOV5bGe5rOi5Yip5bC86KW/5LqaIiwi5rOV5bGe5rOi5Yip5bC86KW/5LqaIiwxLCIiLCIiXSxbIuazleWxnuWcreS6mumCoyIsIuazleWxnuWcreS6mumCoyIsMSwiIiwiIl0sWyLmorXokoLlhogiLCLmorXokoLlhogiLDEsIiIsIiJdLFsi6I+y5b6L5a6+Iiwi6I+y5b6L5a6+IiwxLCIiLCIiXSxbIuaWkOa1jiIsIuaWkOa1jiIsMSwiIiwiIl0sWyLoiqzlhbAiLCLoiqzlhbAiLDEsIiIsIiJdLFsi5L2b5b6X6KeSIiwi5L2b5b6X6KeSIiwxLCIiLCIiXSxbIuWGiOavlOS6miIsIuWGiOavlOS6miIsMSwiIiwiIl0sWyLliJrmnpwiLCLliJrmnpwiLDEsIiIsIiJdLFsi5Yia5p6c77yI6YeR77yJIiwi5Yia5p6c77yI6YeR77yJIiwxLCIiLCIiXSxbIuWTpeS8puavlOS6miIsIuWTpeS8puavlOS6miIsMSwiIiwiIl0sWyLlk6Xmlq/ovr7pu47liqAiLCLlk6Xmlq/ovr7pu47liqAiLDEsIiIsIiJdLFsi5qC85p6X57qz6L6+Iiwi5qC85p6X57qz6L6+IiwxLCIiLCIiXSxbIuagvOmygeWQieS6miIsIuagvOmygeWQieS6miIsMSwiIiwiIl0sWyLmoLnopb/lspsiLCLmoLnopb/lspsiLDEsIiIsIiJdLFsi5Y+k5be0Iiwi5Y+k5be0IiwxLCIiLCIiXSxbIueTnOW+t+e9l+aZruWymyIsIueTnOW+t+e9l+aZruWymyIsMSwiIiwiIl0sWyLlhbPlspsiLCLlhbPlspsiLDEsIiIsIiJdLFsi5Zyt5Lqa6YKjIiwi5Zyt5Lqa6YKjIiwxLCIiLCIiXSxbIuWTiOiQqOWFi+aWr+WdpiIsIuWTiOiQqOWFi+aWr+WdpiIsMSwiIiwiIl0sWyLmtbflnLAiLCLmtbflnLAiLDEsIiIsIiJdLFsi6Z+p5Zu9Iiwi6Z+p5Zu9IiwxLCIiLCIiXSxbIuiNt+WFsCIsIuiNt+WFsCIsMSwiIiwiIl0sWyLpu5HlsbEiLCLpu5HlsbEiLDEsIiIsIiJdLFsi5rSq6YO95ouJ5pavIiwi5rSq6YO95ouJ5pavIiwxLCIiLCIiXSxbIuWfuumHjOW3tOaWryIsIuWfuumHjOW3tOaWryIsMSwiIiwiIl0sWyLlkInluIPmj5AiLCLlkInluIPmj5AiLDEsIiIsIiJdLFsi5ZCJ5bCU5ZCJ5pav5pav5Z2mIiwi5ZCJ5bCU5ZCJ5pav5pav5Z2mIiwxLCIiLCIiXSxbIuWHoOWGheS6miIsIuWHoOWGheS6miIsMSwiIiwiIl0sWyLlh6DlhoXkuprmr5Tnu40iLCLlh6DlhoXkuprmr5Tnu40iLDEsIiIsIiJdLFsi5Yqg5ou/5aSnIiwi5Yqg5ou/5aSnIiwxLCIiLCIiXSxbIuWKoOe6syIsIuWKoOe6syIsMSwiIiwiIl0sWyLliqDok6wiLCLliqDok6wiLDEsIiIsIiJdLFsi5p+s5Z+U5a+oIiwi5p+s5Z+U5a+oIiwxLCIiLCIiXSxbIuaNt+WFiyIsIuaNt+WFiyIsMSwiIiwiIl0sWyLmtKXlt7TluIPpn6YiLCLmtKXlt7TluIPpn6YiLDEsIiIsIiJdLFsi5ZaA6bqm6ZqGIiwi5ZaA6bqm6ZqGIiwxLCIiLCIiXSxbIuWNoeWhlOWwlCIsIuWNoeWhlOWwlCIsMSwiIiwiIl0sWyLnp5Hnp5Hmlq/vvIjln7rmnpfvvInnvqTlspsiLCLnp5Hnp5Hmlq/vvIjln7rmnpfvvInnvqTlspsiLDEsIiIsIiJdLFsi56eR5pGp572XIiwi56eR5pGp572XIiwxLCIiLCIiXSxbIuenkeeJuei/queTpiIsIuenkeeJuei/queTpiIsMSwiIiwiIl0sWyLnp5HlqIHnibkiLCLnp5HlqIHnibkiLDEsIiIsIiJdLFsi5YWL572X5Zyw5LqaIiwi5YWL572X5Zyw5LqaIiwxLCIiLCIiXSxbIuiCr+WwvOS6miIsIuiCr+WwvOS6miIsMSwiIiwiIl0sWyLlupPlhYvnvqTlspsiLCLlupPlhYvnvqTlspsiLDEsIiIsIiJdLFsi5ouJ6ISx57u05LqaIiwi5ouJ6ISx57u05LqaIiwxLCIiLCIiXSxbIuiOsee0ouaJmCIsIuiOsee0ouaJmCIsMSwiIiwiIl0sWyLogIHmjJ0iLCLogIHmjJ0iLDEsIiIsIiJdLFsi6buO5be05aupIiwi6buO5be05aupIiwxLCIiLCIiXSxbIueri+mZtuWumyIsIueri+mZtuWumyIsMSwiIiwiIl0sWyLliKnmr5Tph4zkupoiLCLliKnmr5Tph4zkupoiLDEsIiIsIiJdLFsi5Yip5q+U5LqaIiwi5Yip5q+U5LqaIiwxLCIiLCIiXSxbIuWIl+aUr+aVpuWjq+eZuyIsIuWIl+aUr+aVpuWjq+eZuyIsMSwiIiwiIl0sWyLnlZnlsLzmsarlspsiLCLnlZnlsLzmsarlspsiLDEsIiIsIiJdLFsi5Y2i5qOu5aChIiwi5Y2i5qOu5aChIiwxLCIiLCIiXSxbIuWNouaXuui+viIsIuWNouaXuui+viIsMSwiIiwiIl0sWyLnvZfpqazlsLzkupoiLCLnvZfpqazlsLzkupoiLDEsIiIsIiJdLFsi6ams6L6+5Yqg5pav5YqgIiwi6ams6L6+5Yqg5pav5YqgIiwxLCIiLCIiXSxbIumprOaBqeWymyIsIumprOaBqeWymyIsMSwiIiwiIl0sWyLpqazlsJTku6PlpKsiLCLpqazlsJTku6PlpKsiLDEsIiIsIiJdLFsi6ams6ICz5LuWIiwi6ams6ICz5LuWIiwxLCIiLCIiXSxbIumprOaLiee7tCIsIumprOaLiee7tCIsMSwiIiwiIl0sWyLpqazmnaXopb/kupoiLCLpqazmnaXopb/kupoiLDEsIiIsIiJdLFsi6ams6YeMIiwi6ams6YeMIiwxLCIiLCIiXSxbIumprOWFtumhvyIsIumprOWFtumhvyIsMSwiIiwiIl0sWyLpqaznu43lsJTnvqTlspsiLCLpqaznu43lsJTnvqTlspsiLDEsIiIsIiJdLFsi6ams5o+Q5bC85YWL5bKbIiwi6ams5o+Q5bC85YWL5bKbIiwxLCIiLCIiXSxbIumprOe6pueJuSIsIumprOe6pueJuSIsMSwiIiwiIl0sWyLmr5vph4zmsYLmlq8iLCLmr5vph4zmsYLmlq8iLDEsIiIsIiJdLFsi5q+b6YeM5aGU5bC85LqaIiwi5q+b6YeM5aGU5bC85LqaIiwxLCIiLCIiXSxbIue+juWbvSIsIue+juWbvSIsMSwiIiwiIl0sWyLnvo7lsZ7okKjmkankupoiLCLnvo7lsZ7okKjmkankupoiLDEsIiIsIiJdLFsi6JKZ5Y+kIiwi6JKZ5Y+kIiwxLCIiLCIiXSxbIuiSmeeJueWhnuaLieeJuSIsIuiSmeeJueWhnuaLieeJuSIsMSwiIiwiIl0sWyLlrZ/liqDmi4kiLCLlrZ/liqDmi4kiLDEsIiIsIiJdLFsi56eY6bKBIiwi56eY6bKBIiwxLCIiLCIiXSxbIuWvhuWFi+e9l+WwvOilv+S6miIsIuWvhuWFi+e9l+WwvOilv+S6miIsMSwiIiwiIl0sWyLnvIXnlLgiLCLnvIXnlLgiLDEsIiIsIiJdLFsi5pGp5bCU5aSa55OmIiwi5pGp5bCU5aSa55OmIiwxLCIiLCIiXSxbIuaRqea0m+WTpSIsIuaRqea0m+WTpSIsMSwiIiwiIl0sWyLmkannurPlk6UiLCLmkannurPlk6UiLDEsIiIsIiJdLFsi6I6r5qGR5q+U5YWLIiwi6I6r5qGR5q+U5YWLIiwxLCIiLCIiXSxbIuWiqOilv+WTpSIsIuWiqOilv+WTpSIsMSwiIiwiIl0sWyLnurPnsbPmr5TkupoiLCLnurPnsbPmr5TkupoiLDEsIiIsIiJdLFsi5Y2X6Z2eIiwi5Y2X6Z2eIiwxLCIiLCIiXSxbIuWNl+aWr+aLieWkqyIsIuWNl+aWr+aLieWkqyIsMSwiIiwiIl0sWyLnkZnpsoEiLCLnkZnpsoEiLDEsIiIsIiJdLFsi5bC85rOK5bCUIiwi5bC85rOK5bCUIiwxLCIiLCIiXSxbIuWwvOWKoOaLieeTnCIsIuWwvOWKoOaLieeTnCIsMSwiIiwiIl0sWyLlsLzml6XlsJQiLCLlsLzml6XlsJQiLDEsIiIsIiJdLFsi5bC85pel5Yip5LqaIiwi5bC85pel5Yip5LqaIiwxLCIiLCIiXSxbIue6veWfgyIsIue6veWfgyIsMSwiIiwiIl0sWyLmjKrlqIEiLCLmjKrlqIEiLDEsIiIsIiJdLFsi6K+656aP5YWL5bKbIiwi6K+656aP5YWL5bKbIiwxLCIiLCIiXSxbIuW4leWKsyIsIuW4leWKsyIsMSwiIiwiIl0sWyLnmq7nibnlh6/mgannvqTlspsiLCLnmq7nibnlh6/mgannvqTlspsiLDEsIiIsIiJdLFsi6JGh6JCE54mZIiwi6JGh6JCE54mZIiwxLCIiLCIiXSxbIuaXpeacrCIsIuaXpeacrCIsMSwiIiwiIl0sWyLnkZ7lhbgiLCLnkZ7lhbgiLDEsIiIsIiJdLFsi55Ge5aOrIiwi55Ge5aOrIiwxLCIiLCIiXSxbIuiQqOWwlOeTpuWkmiIsIuiQqOWwlOeTpuWkmiIsMSwiIiwiIl0sWyLokKjmkankupoiLCLokKjmkankupoiLDEsIiIsIiJdLFsi5aGe5bCU57u05LqaIiwi5aGe5bCU57u05LqaIiwxLCIiLCIiXSxbIuWhnuaLieWIqeaYgiIsIuWhnuaLieWIqeaYgiIsMSwiIiwiIl0sWyLloZ7lhoXliqDlsJQiLCLloZ7lhoXliqDlsJQiLDEsIiIsIiJdLFsi5aGe5rWm6Lev5pavIiwi5aGe5rWm6Lev5pavIiwxLCIiLCIiXSxbIuWhnuiIjOWwlCIsIuWhnuiIjOWwlCIsMSwiIiwiIl0sWyLmspnnibnpmL/mi4nkvK8iLCLmspnnibnpmL/mi4nkvK8iLDEsIiIsIiJdLFsi5Zyj6K+e5bKbIiwi5Zyj6K+e5bKbIiwxLCIiLCIiXSxbIuWco+Wkmue+juWSjOaZruael+ilv+avlCIsIuWco+Wkmue+juWSjOaZruael+ilv+avlCIsMSwiIiwiIl0sWyLlnKPotavli5Lmi78iLCLlnKPotavli5Lmi78iLDEsIiIsIiJdLFsi5Zyj5Z+66Iyo5ZKM5bC857u05pavIiwi5Zyj5Z+66Iyo5ZKM5bC857u05pavIiwxLCIiLCIiXSxbIuWco+WNouilv+S6miIsIuWco+WNouilv+S6miIsMSwiIiwiIl0sWyLlnKPpqazlipvor7oiLCLlnKPpqazlipvor7oiLDEsIiIsIiJdLFsi5Zyj5paH5qOu54m55ZKM5qC85p6X57qz5LiB5pavIiwi5Zyj5paH5qOu54m55ZKM5qC85p6X57qz5LiB5pavIiwxLCIiLCIiXSxbIuaWr+mHjOWFsOWNoSIsIuaWr+mHjOWFsOWNoSIsMSwiIiwiIl0sWyLmlq/mtJvkvJDlhYsiLCLmlq/mtJvkvJDlhYsiLDEsIiIsIiJdLFsi5pav5rSb5paH5bC85LqaIiwi5pav5rSb5paH5bC85LqaIiwxLCIiLCIiXSxbIuaWr+WogeWjq+WFsCIsIuaWr+WogeWjq+WFsCIsMSwiIiwiIl0sWyLoi4/kuLkiLCLoi4/kuLkiLDEsIiIsIiJdLFsi6IuP6YeM5Y2XIiwi6IuP6YeM5Y2XIiwxLCIiLCIiXSxbIuaJgOe9l+mXqOe+pOWymyIsIuaJgOe9l+mXqOe+pOWymyIsMSwiIiwiIl0sWyLntKLpqazph4wiLCLntKLpqazph4wiLDEsIiIsIiJdLFsi5aGU5ZCJ5YWL5pav5Z2mIiwi5aGU5ZCJ5YWL5pav5Z2mIiwxLCIiLCIiXSxbIuazsOWbvSIsIuazsOWbvSIsMSwiIiwiIl0sWyLlnabmoZHlsLzkupoiLCLlnabmoZHlsLzkupoiLDEsIiIsIiJdLFsi5rGk5YqgIiwi5rGk5YqgIiwxLCIiLCIiXSxbIueJueeri+WwvOi+vuWSjOWkmuW3tOWTpSIsIueJueeri+WwvOi+vuWSjOWkmuW3tOWTpSIsMSwiIiwiIl0sWyLnqoHlsLzmlq8iLCLnqoHlsLzmlq8iLDEsIiIsIiJdLFsi5Zu+55Om5Y2iIiwi5Zu+55Om5Y2iIiwxLCIiLCIiXSxbIuWcn+iAs+WFtiIsIuWcn+iAs+WFtiIsMSwiIiwiIl0sWyLlnJ/lupPmm7zmlq/lnaYiLCLlnJ/lupPmm7zmlq/lnaYiLDEsIiIsIiJdLFsi5omY5YWL5YqzIiwi5omY5YWL5YqzIiwxLCIiLCIiXSxbIueTpuWIqeaWr+e+pOWym+WSjOWvjOWbvue6s+e+pOWymyIsIueTpuWIqeaWr+e+pOWym+WSjOWvjOWbvue6s+e+pOWymyIsMSwiIiwiIl0sWyLnk6bliqrpmL/lm74iLCLnk6bliqrpmL/lm74iLDEsIiIsIiJdLFsi5Y2x5Zyw6ams5ouJIiwi5Y2x5Zyw6ams5ouJIiwxLCIiLCIiXSxbIuWnlOWGheeRnuaLiSIsIuWnlOWGheeRnuaLiSIsMSwiIiwiIl0sWyLmlofojrEiLCLmlofojrEiLDEsIiIsIiJdLFsi5LmM5bmy6L6+Iiwi5LmM5bmy6L6+IiwxLCIiLCIiXSxbIuS5jOWFi+WFsCIsIuS5jOWFi+WFsCIsMSwiIiwiIl0sWyLkuYzmi4nlnK0iLCLkuYzmi4nlnK0iLDEsIiIsIiJdLFsi5LmM5YW55Yir5YWL5pav5Z2mIiwi5LmM5YW55Yir5YWL5pav5Z2mIiwxLCIiLCIiXSxbIuilv+ePreeJmSIsIuilv+ePreeJmSIsMSwiIiwiIl0sWyLopb/mkpLlk4jmi4kiLCLopb/mkpLlk4jmi4kiLDEsIiIsIiJdLFsi5biM6IWKIiwi5biM6IWKIiwxLCIiLCIiXSxbIuaWsOWKoOWdoSIsIuaWsOWKoOWdoSIsMSwiIiwiIl0sWyLmlrDlloDph4zlpJrlsLzkupoiLCLmlrDlloDph4zlpJrlsLzkupoiLDEsIiIsIiJdLFsi5paw6KW/5YWwIiwi5paw6KW/5YWwIiwxLCIiLCIiXSxbIuWMiOeJmeWIqSIsIuWMiOeJmeWIqSIsMSwiIiwiIl0sWyLlj5nliKnkupoiLCLlj5nliKnkupoiLDEsIiIsIiJdLFsi54mZ5Lmw5YqgIiwi54mZ5Lmw5YqgIiwxLCIiLCIiXSxbIuS6mue+juWwvOS6miIsIuS6mue+juWwvOS6miIsMSwiIiwiIl0sWyLkuZ/pl6giLCLkuZ/pl6giLDEsIiIsIiJdLFsi5LyK5ouJ5YWLIiwi5LyK5ouJ5YWLIiwxLCIiLCIiXSxbIuS8iuaclyIsIuS8iuaclyIsMSwiIiwiIl0sWyLku6XoibLliJciLCLku6XoibLliJciLDEsIiIsIiJdLFsi5oSP5aSn5YipIiwi5oSP5aSn5YipIiwxLCIiLCIiXSxbIuWNsOW6piIsIuWNsOW6piIsMSwiIiwiIl0sWyLljbDluqblsLzopb/kupoiLCLljbDluqblsLzopb/kupoiLDEsIiIsIiJdLFsi6Iux5Zu9Iiwi6Iux5Zu9IiwxLCIiLCIiXSxbIue6puaXpiIsIue6puaXpiIsMSwiIiwiIl0sWyLotorljZciLCLotorljZciLDEsIiIsIiJdLFsi6LWe5q+U5LqaIiwi6LWe5q+U5LqaIiwxLCIiLCIiXSxbIuazveilv+WymyIsIuazveilv+WymyIsMSwiIiwiIl0sWyLkuY3lvpciLCLkuY3lvpciLDEsIiIsIiJdLFsi55u05biD572X6ZmAIiwi55u05biD572X6ZmAIiwxLCIiLCIiXSxbIuaZuuWIqSIsIuaZuuWIqSIsMSwiIiwiIl0sWyLkuK3pnZ4iLCLkuK3pnZ4iLDEsIiIsIiJdXSwiU2VsZWN0ZWRWYWx1ZUFycmF5IjpbIi0xIl19LCJwMV9TaGlGU0giOnsiUmVxdWlyZWQiOnRydWUsIkhpZGRlbiI6ZmFsc2UsIlNlbGVjdGVkVmFsdWUiOiLmmK8iLCJGX0l0ZW1zIjpbWyLmmK8iLCLlnKjkuIrmtbciLDFdLFsi5ZCmIiwi5LiN5Zyo5LiK5rW3IiwxXV19LCJwMV9TaGlGWlgiOnsiUmVxdWlyZWQiOnRydWUsIkhpZGRlbiI6ZmFsc2UsIlNlbGVjdGVkVmFsdWUiOiLlkKYiLCJGX0l0ZW1zIjpbWyLmmK8iLCLkvY/moKEiLDFdLFsi5ZCmIiwi5LiN5L2P5qChIiwxXV19LCJwMV9kZGxTaGVuZyI6eyJIaWRkZW4iOmZhbHNlLCJGX0l0ZW1zIjpbWyItMSIsIumAieaLqeecgeS7vSIsMSwiIiwiIl0sWyLljJfkuqwiLCLljJfkuqwiLDEsIiIsIiJdLFsi5aSp5rSlIiwi5aSp5rSlIiwxLCIiLCIiXSxbIuS4iua1tyIsIuS4iua1tyIsMSwiIiwiIl0sWyLph43luoYiLCLph43luoYiLDEsIiIsIiJdLFsi5rKz5YyXIiwi5rKz5YyXIiwxLCIiLCIiXSxbIuWxseilvyIsIuWxseilvyIsMSwiIiwiIl0sWyLovr3lroEiLCLovr3lroEiLDEsIiIsIiJdLFsi5ZCJ5p6XIiwi5ZCJ5p6XIiwxLCIiLCIiXSxbIum7kem+meaxnyIsIum7kem+meaxnyIsMSwiIiwiIl0sWyLmsZ/oi48iLCLmsZ/oi48iLDEsIiIsIiJdLFsi5rWZ5rGfIiwi5rWZ5rGfIiwxLCIiLCIiXSxbIuWuieW+vSIsIuWuieW+vSIsMSwiIiwiIl0sWyLnpo/lu7oiLCLnpo/lu7oiLDEsIiIsIiJdLFsi5rGf6KW/Iiwi5rGf6KW/IiwxLCIiLCIiXSxbIuWxseS4nCIsIuWxseS4nCIsMSwiIiwiIl0sWyLmsrPljZciLCLmsrPljZciLDEsIiIsIiJdLFsi5rmW5YyXIiwi5rmW5YyXIiwxLCIiLCIiXSxbIua5luWNlyIsIua5luWNlyIsMSwiIiwiIl0sWyLlub/kuJwiLCLlub/kuJwiLDEsIiIsIiJdLFsi5rW35Y2XIiwi5rW35Y2XIiwxLCIiLCIiXSxbIuWbm+W3nSIsIuWbm+W3nSIsMSwiIiwiIl0sWyLotLXlt54iLCLotLXlt54iLDEsIiIsIiJdLFsi5LqR5Y2XIiwi5LqR5Y2XIiwxLCIiLCIiXSxbIumZleilvyIsIumZleilvyIsMSwiIiwiIl0sWyLnlJjogoMiLCLnlJjogoMiLDEsIiIsIiJdLFsi6Z2S5rW3Iiwi6Z2S5rW3IiwxLCIiLCIiXSxbIuWGheiSmeWPpCIsIuWGheiSmeWPpCIsMSwiIiwiIl0sWyLlub/opb8iLCLlub/opb8iLDEsIiIsIiJdLFsi6KW/6JePIiwi6KW/6JePIiwxLCIiLCIiXSxbIuWugeWkjyIsIuWugeWkjyIsMSwiIiwiIl0sWyLmlrDnloYiLCLmlrDnloYiLDEsIiIsIiJdLFsi6aaZ5rivIiwi6aaZ5rivIiwxLCIiLCIiXSxbIua+s+mXqCIsIua+s+mXqCIsMSwiIiwiIl0sWyLlj7Dmub4iLCLlj7Dmub4iLDEsIiIsIiJdXSwiU2VsZWN0ZWRWYWx1ZUFycmF5IjpbIuS4iua1tyJdfSwicDFfZGRsU2hpIjp7IkhpZGRlbiI6ZmFsc2UsIkVuYWJsZWQiOnRydWUsIkZfSXRlbXMiOltbIi0xIiwi6YCJ5oup5biCIiwxLCIiLCIiXSxbIuS4iua1t+W4giIsIuS4iua1t+W4giIsMSwiIiwiIl1dLCJTZWxlY3RlZFZhbHVlQXJyYXkiOlsi5LiK5rW35biCIl19LCJwMV9kZGxYaWFuIjp7IkhpZGRlbiI6ZmFsc2UsIkVuYWJsZWQiOnRydWUsIkZfSXRlbXMiOltbIi0xIiwi6YCJ5oup5Y6/5Yy6IiwxLCIiLCIiXSxbIum7hOa1puWMuiIsIum7hOa1puWMuiIsMSwiIiwiIl0sWyLljaLmub7ljLoiLCLljaLmub7ljLoiLDEsIiIsIiJdLFsi5b6Q5rGH5Yy6Iiwi5b6Q5rGH5Yy6IiwxLCIiLCIiXSxbIumVv+WugeWMuiIsIumVv+WugeWMuiIsMSwiIiwiIl0sWyLpnZnlronljLoiLCLpnZnlronljLoiLDEsIiIsIiJdLFsi5pmu6ZmA5Yy6Iiwi5pmu6ZmA5Yy6IiwxLCIiLCIiXSxbIuiZueWPo+WMuiIsIuiZueWPo+WMuiIsMSwiIiwiIl0sWyLmnajmtabljLoiLCLmnajmtabljLoiLDEsIiIsIiJdLFsi5a6d5bGx5Yy6Iiwi5a6d5bGx5Yy6IiwxLCIiLCIiXSxbIumXteihjOWMuiIsIumXteihjOWMuiIsMSwiIiwiIl0sWyLlmInlrprljLoiLCLlmInlrprljLoiLDEsIiIsIiJdLFsi5p2+5rGf5Yy6Iiwi5p2+5rGf5Yy6IiwxLCIiLCIiXSxbIumHkeWxseWMuiIsIumHkeWxseWMuiIsMSwiIiwiIl0sWyLpnZLmtabljLoiLCLpnZLmtabljLoiLDEsIiIsIiJdLFsi5aWJ6LSk5Yy6Iiwi5aWJ6LSk5Yy6IiwxLCIiLCIiXSxbIua1puS4nOaWsOWMuiIsIua1puS4nOaWsOWMuiIsMSwiIiwiIl0sWyLltIfmmI7ljLoiLCLltIfmmI7ljLoiLDEsIiIsIiJdXSwiU2VsZWN0ZWRWYWx1ZUFycmF5IjpbIumdmeWuieWMuiJdfSwicDFfWGlhbmdYRFoiOnsiSGlkZGVuIjpmYWxzZSwiTGFiZWwiOiLlm73lhoXor6bnu4blnLDlnYDvvIjnnIHluILljLrljr/ml6DpnIDph43lpI3loavlhpnvvIkiLCJUZXh0Ijoi5q2m5a6a6LevMTE0NeW8hDLlj7cyNjA05a6kIn0sInAxX1NoaUZaSiI6eyJSZXF1aXJlZCI6dHJ1ZSwiSGlkZGVuIjpmYWxzZSwiRl9JdGVtcyI6W1si5pivIiwi5a625bqt5Zyw5Z2AIiwxXSxbIuWQpiIsIuS4jeaYr+WutuW6reWcsOWdgCIsMV1dLCJTZWxlY3RlZFZhbHVlIjpudWxsfSwicDFfQ29udGVudFBhbmVsMV9aaG9uZ0dGWERRIjp7IlRleHQiOiI8c3BhbiBzdHlsZT0nY29sb3I6cmVkOyc+6auY6aOO6Zmp5Zyw5Yy677yaPGJyLz5cclxu5YyX5Lqs5biC5aSn5YW05Yy65aSp5a6r6Zmi6KGX6YGT6J6N5rGH56S+5Yy6PGJyLz5cclxu5rKz5YyX55yB55+z5a625bqE5biC6JeB5Z+O5Yy6PGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5ZG85YWw5Yy65ZG85YWw6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5ZG85YWw5Yy65YWw5rKz6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5Yip5rCR5byA5Y+R5Yy66KOV55Sw6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5Yip5rCR5byA5Y+R5Yy65Yip5rCR6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB57ul5YyW5biC5pyb5aWO5Y6/PGJyLz5cclxu6buR6b6Z5rGf55yB57ul5YyW5biC5rW35Lym5biC5rC45a+M6ZWH5LyX5Y+R5p2RPGJyLz5cclxu6buR6b6Z5rGf55yB57ul5YyW5biC5rW35Lym5biC5rC45a+M6ZWH5Lic5aSn5p2RPGJyLz5cclxu5ZCJ5p6X55yB6YCa5YyW5biC5Lic5piM5Yy6PGJyLz5cclxuPGJyLz5cclxu5Lit6aOO6Zmp5Zyw5Yy677yaPGJyLz5cclxu5rKz5YyX55yB55+z5a625bqE5biC5paw5LmQ5biCPGJyLz5cclxu5rKz5YyX55yB55+z5a625bqE5biC5bmz5bGx5Y6/6K6/6am+5bqE5p2RPGJyLz5cclxu5rKz5YyX55yB6YKi5Y+w5biC5Y2X5a6r5biCPGJyLz5cclxu5rKz5YyX55yB5L+d5a6a5biC5a6a5bee5biC6KW/5Z+O5Yy65bqe55m95Zyf5paw5rCR5bGF5YyX5Yy6PGJyLz5cclxu6buR6b6Z5rGf55yB6b2Q6b2Q5ZOI5bCU5biC5piC5piC5rqq5Yy65aSn5LqU56aP546b5p2RPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5Y2X5bKX5Yy65ZKM5YW06Lev6KGX6YGT77yI5Y6f5riF5ruo6KGX6YGT6YOo5YiG77yM5ZCr5Luq5YW056S+5Yy644CB55S16KGo56S+5Yy644CB5bu65Lqk56S+5Yy644CB56aP5bCa56S+5Yy644CB5riF5ruo56S+5Yy677yJPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC6aaZ5Z2K5Yy65paw5oiQ6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC6YGT6YeM5Yy65bel5Yac6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC6YGT6YeM5Yy65bu65Zu96KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC6YGT6YeM5Yy65oqa6aG66KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC6YGT6YeM5Yy65paw6Ziz6Lev6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC6YGT6YeM5Yy65paw5Y2O6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC6YGT5aSW5Yy65beo5rqQ6ZWHPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC6YGT5aSW5Yy65rC45rqQ6ZWHPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC6YGT5aSW5Yy65paw5LiA6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5ZG85YWw5Yy65YWs5Zut6Lev6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5ZG85YWw5Yy66IWw5aCh6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5ZG85YWw5Yy65bu66K6+6Lev6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5ZG85YWw5Yy66JCn5Lmh6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5ZG85YWw5Yy65bq36YeR6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5ZG85YWw5Yy66ZW/5bKt6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5ZG85YWw5Yy65a2f5a625LmhPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5Yip5rCR5byA5Y+R5Yy65Y2X5Lqs6Lev6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5Yip5rCR5byA5Y+R5Yy65Yip5Lia6KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5Yip5rCR5byA5Y+R5Yy66KOV5by66KGX6YGTPGJyLz5cclxu6buR6b6Z5rGf55yB5ZOI5bCU5ruo5biC5Yip5rCR5byA5Y+R5Yy65LmQ5Lia6ZWHPGJyLz5cclxu6buR6b6Z5rGf55yB57ul5YyW5biC5YyX5p6X5Yy65rCU6LGh5bCP5Yy65LiA5pyfPGJyLz5cclxu6buR6b6Z5rGf55yB57ul5YyW5biC5YyX5p6X5Yy65a6i6L+Q56uZ5a625bGe5qW8PGJyLz5cclxu6buR6b6Z5rGf55yB57ul5YyW5biC5YyX5p6X5Yy655ub5LiW5Y2O5bqt5YWs5a+TPGJyLz5cclxu6buR6b6Z5rGf55yB57ul5YyW5biC5YyX5p6X5Yy65LiW57qq5pa56Iif5Zub5pyfPGJyLz5cclxu6buR6b6Z5rGf55yB57ul5YyW5biC5YyX5p6X5Yy65Y2a5a2m5YWs5a+TPGJyLz5cclxu6buR6b6Z5rGf55yB57ul5YyW5biC5YyX5p6X5Yy65Zut5LiBMeWMujxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4guWMl+ael+WMuuWGnOacuuWxgOWutuWxnualvDxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4guWMl+ael+WMuuS4luemj+axhzxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4guWuiei+vuW4guS4nOWfjuihl+mBk+W3peWVhumTtuihjOWutuWxnualvOWwj+WMuu+8iOWQq+W3peWVhumTtuihjOWKnuWFrOWMuu+8iTxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4guWuiei+vuW4guS4nOWfjuihl+mBk+WNjuW6reS6jOacn+Wwj+WMujxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4guWuiei+vuW4guWuieiZueihl+mBk+mHkeeojuWwj+WMujxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4guWuiei+vuW4guWuieiZueihl+mBk+WuoeiuoeWxgOWutuWxnualvOWwj+WMujxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4gua1t+S8puW4guemj+awkeS5oeawuOWFtOadkTxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4gua1t+S8puW4guS8puays+mVh+mUpuengOWYieWbreWwj+WMujxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4gua1t+S8puW4guawuOWvjOmVh+aAnea6kOadkTxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4gua1t+S8puW4guawuOWvjOmVh+WQjOWPkeadkTxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4gua1t+S8puW4guS4sOWxseS5oeS4sOWxseadkTxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4gua1t+S8puW4guS4sOWxseS5oeS4sOiNo+adkTxici8+XHJcbum7kem+meaxn+ecgee7peWMluW4gua1t+S8puW4guS4sOWxseS5oeS4sOW6huadkTxici8+XHJcbuWQieael+ecgemVv+aYpeW4guWFrOS4u+WyreW4guiMg+WutuWxr+mVhzxici8+XHJcbuS4iua1t+W4gum7hOa1puWMuui0teilv+Wwj+WMujxici8+XHJcbuS4iua1t+W4guWuneWxseWMuuWPi+iwiui3r+ihl+mBk+S4tOaxn+aWsOadke+8iOS4gOOAgeS6jOadke+8ieWwj+WMujxici8+XHJcbuS4iua1t+W4gua1puS4nOaWsOWMuumrmOS4nOmVh+aWsOmrmOiLkeS4gOacn+Wwj+WMujwvc3Bhbj4ifSwicDFfQ29udGVudFBhbmVsMSI6eyJJRnJhbWVBdHRyaWJ1dGVzIjp7fX0sInAxX0ZlbmdYRFFETCI6eyJMYWJlbCI6IjAx5pyIMjTml6Xoh7MwMuaciDA35pel5piv5ZCm5ZyoPHNwYW4gc3R5bGU9J2NvbG9yOnJlZDsnPuS4remrmOmjjumZqeWcsOWMujwvc3Bhbj7pgJfnlZkiLCJTZWxlY3RlZFZhbHVlIjoi5ZCmIiwiRl9JdGVtcyI6W1si5pivIiwi5pivIiwxXSxbIuWQpiIsIuWQpiIsMV1dfSwicDFfVG9uZ1pXRExIIjp7IlJlcXVpcmVkIjp0cnVlLCJMYWJlbCI6IuS4iua1t+WQjOS9j+S6uuWRmOaYr+WQpuaciTAx5pyIMjTml6Xoh7MwMuaciDA35pel5p2l6IeqPHNwYW4gc3R5bGU9J2NvbG9yOnJlZDsnPuS4remrmOmjjumZqeWcsOWMujwvc3Bhbj7nmoTkuroiLCJTZWxlY3RlZFZhbHVlIjoi5ZCmIiwiRl9JdGVtcyI6W1si5pivIiwi5pivIiwxXSxbIuWQpiIsIuWQpiIsMV1dfSwicDFfQ2VuZ0ZXSCI6eyJMYWJlbCI6IjAx5pyIMjTml6Xoh7MwMuaciDA35pel5piv5ZCm5ZyoPHNwYW4gc3R5bGU9J2NvbG9yOnJlZDsnPuS4remrmOmjjumZqeWcsOWMujwvc3Bhbj7pgJfnlZnov4ciLCJGX0l0ZW1zIjpbWyLmmK8iLCLmmK8iLDFdLFsi5ZCmIiwi5ZCmIiwxXV0sIlNlbGVjdGVkVmFsdWUiOiLlkKYifSwicDFfQ2VuZ0ZXSF9SaVFpIjp7IkhpZGRlbiI6dHJ1ZX0sInAxX0NlbmdGV0hfQmVpWmh1Ijp7IkhpZGRlbiI6dHJ1ZX0sInAxX0ppZUNodSI6eyJMYWJlbCI6IjAx5pyIMjTml6Xoh7MwMuaciDA35pel5piv5ZCm5LiO5p2l6IeqPHNwYW4gc3R5bGU9J2NvbG9yOnJlZDsnPuS4remrmOmjjumZqeWcsOWMujwvc3Bhbj7lj5Hng63kurrlkZjlr4bliIfmjqXop6YiLCJTZWxlY3RlZFZhbHVlIjoi5ZCmIiwiRl9JdGVtcyI6W1si5pivIiwi5pivIiwxXSxbIuWQpiIsIuWQpiIsMV1dfSwicDFfSmllQ2h1X1JpUWkiOnsiSGlkZGVuIjp0cnVlfSwicDFfSmllQ2h1X0JlaVpodSI6eyJIaWRkZW4iOnRydWV9LCJwMV9UdUpXSCI6eyJMYWJlbCI6IjAx5pyIMjTml6Xoh7MwMuaciDA35pel5piv5ZCm5LmY5Z2Q5YWs5YWx5Lqk6YCa6YCU5b6EPHNwYW4gc3R5bGU9J2NvbG9yOnJlZDsnPuS4remrmOmjjumZqeWcsOWMujwvc3Bhbj4iLCJTZWxlY3RlZFZhbHVlIjoi5ZCmIiwiRl9JdGVtcyI6W1si5pivIiwi5pivIiwxXSxbIuWQpiIsIuWQpiIsMV1dfSwicDFfVHVKV0hfUmlRaSI6eyJIaWRkZW4iOnRydWV9LCJwMV9UdUpXSF9CZWlaaHUiOnsiSGlkZGVuIjp0cnVlfSwicDFfUXVlWkhaSkMiOnsiRl9JdGVtcyI6W1si5pivIiwi5pivIiwxLCIiLCIiXSxbIuWQpiIsIuWQpiIsMSwiIiwiIl1dLCJTZWxlY3RlZFZhbHVlQXJyYXkiOlsi5ZCmIl19LCJwMV9EYW5nUkdMIjp7IlNlbGVjdGVkVmFsdWUiOiLlkKYiLCJGX0l0ZW1zIjpbWyLmmK8iLCLmmK8iLDFdLFsi5ZCmIiwi5ZCmIiwxXV19LCJwMV9HZUxTTSI6eyJIaWRkZW4iOnRydWUsIklGcmFtZUF0dHJpYnV0ZXMiOnt9fSwicDFfR2VMRlMiOnsiUmVxdWlyZWQiOmZhbHNlLCJIaWRkZW4iOnRydWUsIkZfSXRlbXMiOltbIuWxheWutumalOemuyIsIuWxheWutumalOemuyIsMV0sWyLpm4bkuK3pmpTnprsiLCLpm4bkuK3pmpTnprsiLDFdXSwiU2VsZWN0ZWRWYWx1ZSI6bnVsbH0sInAxX0dlTERaIjp7IkhpZGRlbiI6dHJ1ZX0sInAxX0ZhblhSUSI6eyJIaWRkZW4iOnRydWV9LCJwMV9XZWlGSFlZIjp7IkhpZGRlbiI6dHJ1ZX0sInAxX1NoYW5nSEpaRCI6eyJIaWRkZW4iOnRydWV9LCJwMV9KaWFSZW4iOnsiTGFiZWwiOiIwMeaciDI05pel6IezMDLmnIgwN+aXpeWutuS6uuaYr+WQpuacieWPkeeDreetieeXh+eKtiJ9LCJwMV9KaWFSZW5fQmVpWmh1Ijp7IkhpZGRlbiI6dHJ1ZX0sInAxX1N1aVNNIjp7IlJlcXVpcmVkIjp0cnVlLCJTZWxlY3RlZFZhbHVlIjoi57u/6ImyIiwiRl9JdGVtcyI6W1si57qi6ImyIiwi57qi6ImyIiwxXSxbIum7hOiJsiIsIum7hOiJsiIsMV0sWyLnu7/oibIiLCLnu7/oibIiLDFdXX0sInAxX0x2TWExNERheXMiOnsiUmVxdWlyZWQiOnRydWUsIlNlbGVjdGVkVmFsdWUiOiLmmK8iLCJGX0l0ZW1zIjpbWyLmmK8iLCLmmK8iLDFdLFsi5ZCmIiwi5ZCmIiwxXV19LCJwMV9jdGwwMF9idG5SZXR1cm4iOnsiT25DbGllbnRDbGljayI6ImRvY3VtZW50LmxvY2F0aW9uLmhyZWY9Jy9EZWZhdWx0LmFzcHgnO3JldHVybjsifSwicDEiOnsiVGl0bGUiOiLlup7otKTkvJ/vvIgxOTEyMzI0Mu+8ieeahOavj+aXpeS4gOaKpSIsIklGcmFtZUF0dHJpYnV0ZXMiOnt9fX0="
+	originCode := code
+	decoded, err := base64.StdEncoding.DecodeString(code)
+	if err != nil {
+		log.Fatal(err)
+	}
+	decodedString := string(decoded)
+	fmt.Println(decodedString)
+
+	// Time
+	begin = strings.Index(decodedString, "\"p1_BaoSRQ\":{\"Text\":\"") + len("\"p1_BaoSRQ\":{\"Text\":\"")
+	finish = strings.Index(decodedString[begin:], "\"") + begin
+	decodedString = decodedString[:begin] + now.Format("2006-01-02") + decodedString[finish:]
+
+	// Sheng
+	begin = strings.Index(decodedString, "\"p1_ddlSheng")
+	begin += strings.Index(decodedString[begin:], "\"SelectedValueArray\":[\"") + len("\"SelectedValueArray\":[\"")
+	finish = strings.Index(decodedString[begin:], "\"") + begin
+	decodedString = decodedString[:begin] + addr[0] + decodedString[finish:]
+
+	// Shi
+	begin = strings.Index(decodedString, "\"p1_ddlShi")
+	begin += strings.Index(decodedString[begin:], "\"SelectedValueArray\":[\"") + len("\"SelectedValueArray\":[\"")
+	finish = strings.Index(decodedString[begin:], "\"") + begin
+	decodedString = decodedString[:begin] + addr[1] + decodedString[finish:]
+
+	// XianQu
+	begin = strings.Index(decodedString, "\"p1_ddlXian")
+	begin += strings.Index(decodedString[begin:], "\"SelectedValueArray\":[\"") + len("\"SelectedValueArray\":[\"")
+	finish = strings.Index(decodedString[begin:], "\"") + begin
+	decodedString = decodedString[:begin] + addr[2] + decodedString[finish:]
+	// fmt.Println(decodedString[begin:begin+30])
+
+	// Title
+	begin = strings.Index(decodedString, "\"p1\":{\"Title\":\"") + len("\"p1\":{\"Title\":\"")
+	finish = strings.Index(decodedString[begin:], "\"") + begin
+	decodedString = decodedString[:begin] + name + "（" + student.Username + "）的每日一报" + decodedString[finish:]
+
+	// XiangXDZ
+	begin = strings.Index(decodedString, "\"p1_XiangXDZ\"")
+	begin = strings.Index(decodedString[begin:], "\"Text\":\"") + len("\"Text\":\"") + begin
+	finish = strings.Index(decodedString[begin:], "\"") + begin
+	decodedString = decodedString[:begin] + addr[3] + decodedString[finish:]
+
+
+	if addr[0] == "上海" {
+		// p1_ShiFZX required
+		begin = strings.Index(decodedString, "\"p1_ShiFZX\"")
+		begin = strings.Index(decodedString[begin:], "\"Required\":") + len("\"Required\":") + begin
+		finish = strings.Index(decodedString[begin:], ",") + begin
+		decodedString = decodedString[:begin] + "true" + decodedString[finish:]
+		// hidden
+		begin = strings.Index(decodedString, "\"p1_ShiFZX\"")
+		begin = strings.Index(decodedString[begin:], "\"Hidden\":") + len("\"Hidden\":") + begin
+		finish = strings.Index(decodedString[begin:], ",") + begin
+		decodedString = decodedString[:begin] + "false" + decodedString[finish:]
+		// // setvalue
+		// begin = strings.Index(decodedString, "\"p1_ShiFZX\"")
+		// begin = strings.Index(decodedString[begin:], "\"SelectedValue\":\"") + len("\"SelectedValue\":\"") + begin
+		// finish = strings.Index(decodedString[begin:], ",") + begin
+		// decodedString = decodedString[:begin] + "否" + decodedString[finish:]
+
+		//  // p1_ShiFSH setvalue
+		//  begin = strings.Index(decodedString, "\"p1_ShiFSH\"")
+		//  begin = strings.Index(decodedString[begin:], "\"SelectedValue\":\"") + len("\"SelectedValue\":\"") + begin
+		//  finish = strings.Index(decodedString[begin:], ",") + begin
+		//  decodedString = decodedString[:begin] + "是" + decodedString[finish:]
+
+		// // p1_TongZWDLH setvalue
+		// begin = strings.Index(decodedString, "\"p1_TongZWDLH\"")
+		// begin = strings.Index(decodedString[begin:], "\"SelectedValue\":\"") + len("\"SelectedValue\":\"") + begin
+		// finish = strings.Index(decodedString[begin:], ",") + begin
+		// decodedString = decodedString[:begin] + "否" + decodedString[finish:]
+		// // required
+		// begin = strings.Index(decodedString, "\"p1_TongZWDLH\"")
+		// begin = strings.Index(decodedString[begin:], "\"Required\":") + len("\"Required\":") + begin
+		// finish = strings.Index(decodedString[begin:], ",") + begin
+		// decodedString = decodedString[:begin] + "true" + decodedString[finish:]
+
+		// // p1_ShiFZX hidden
+		// begin = strings.Index(decodedString, "\"p1_ShiFZX\"")
+		// begin = strings.Index(decodedString[begin:], "\"Hidden\":") + len("\"Hidden\":") + begin
+		// finish = strings.Index(decodedString[begin:], ",") + begin
+		// decodedString = decodedString[:begin] + "false" + decodedString[finish:]
+
+	}
+
+	decoded = []byte(decodedString)
+	code = base64.StdEncoding.EncodeToString(decoded)
+
+	if code == originCode {
+		fmt.Println("same!")
+	}
+	// fmt.Println(code)
+
+	return code, addr
+}
+
+func getViewState(student Student) (viewstate string, viewstategenerator string) {
+
+	client := http.Client{}
+
+	reportURL := "https://selfreport.shu.edu.cn/DayReport.aspx"
+	req, err := http.NewRequest("GET", reportURL, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	parseReq(req)
+	req.Header.Set("Cookie", student.Cookie)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	dom := string(UGZipBytes(body))
+
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(dom))
+	if err != nil {
+		log.Fatal(err)
+	}
+	doc.Find("#__VIEWSTATE").Each(func(i int, selection *goquery.Selection) {
+		viewstate, _ = selection.Attr("value")
+	})
+	doc.Find("#__VIEWSTATEGENERATOR").Each(func(i int, selection *goquery.Selection) {
+		viewstategenerator, _ = selection.Attr("value")
+	})
+	return
+}
