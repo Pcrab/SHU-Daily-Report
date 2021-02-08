@@ -14,7 +14,7 @@ import (
 
 func NormalLogin(student *Student) bool {
 
-	fmt.Println(student.Username,"is in Normal Login mode")
+	fmt.Println(student.Username, "is in Normal Login mode")
 
 	jar, err := cookiejar.New(nil)
 	if err != nil {
@@ -76,7 +76,15 @@ func NormalLogin(student *Student) bool {
 	}
 	defer resp.Body.Close()
 
-	cookie = jar.Cookies(resp.Request.URL)[0].String()
+	cookie = ""
+	for index, content := range jar.Cookies(resp.Request.URL) {
+		cookie += content.String()
+		if index < len(jar.Cookies(resp.Request.URL)) - 1{
+			cookie += "; "
+		}
+	}
+	// cookie = jar.Cookies(resp.Request.URL)[0].String()
+	fmt.Println(cookie)
 
 	v := viper.New()
 	v.SetConfigName(student.Config)
@@ -105,4 +113,3 @@ func NormalLogin(student *Student) bool {
 
 	return false
 }
-

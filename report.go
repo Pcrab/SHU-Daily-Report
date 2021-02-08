@@ -21,7 +21,7 @@ func report(student Student) bool {
 		}
 
 		// Check if student has cookie or not. If student doesn't have cookie, set it.
-		if !strings.HasPrefix(student.Cookie, ".ncov") {
+		if !strings.Contains(student.Cookie, ".ncov") {
 			NormalLogin(&student)
 		} else if !CookieLogin(&student) {
 			// Check if student's cookie is up to date. If not, correct it.
@@ -141,11 +141,17 @@ func report(student Student) bool {
 		defer resp.Body.Close()
 		body, err := ioutil.ReadAll(resp.Body)
 
-		fmt.Println(string(UGZipBytes(body)))
-
-		if strings.Contains(string(body), "成功") {
-			fmt.Println("!!!!!!!!!")
+		if strings.Contains(string(body), "运行时") {
+			fmt.Println("fail")
+		} else {
+			bodyString := string(UGZipBytes(body))
+			if strings.Contains(bodyString, "成功") {
+				fmt.Println("!!!!!!!!!")
+			}
 		}
+
+		// fmt.Println(string(body))
+
 
 		break
 
